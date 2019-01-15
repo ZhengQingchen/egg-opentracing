@@ -1,7 +1,6 @@
-'use strict';
+"use strict";
 
-const OpenTracing = require('./lib/opentracing');
-
+const OpenTracing = require("./lib/opentracing");
 
 module.exports = app => {
   app.opentracing = new OpenTracing(app);
@@ -24,38 +23,45 @@ module.exports = app => {
 };
 
 function logHTTPServer(app) {
-  const httpServerSpan = Symbol('Context#httpServerSpan');
-  app.on('request', ctx => {
-    const spanContext = ctx.tracer.extract('HTTP', ctx.header);
-    const span = ctx.tracer.startSpan('http_server', { childOf: spanContext });
-    span.setTag('span.kind', 'server');
+  const httpServerSpan = Symbol("Context#httpServerSpan");
+  app.on("request", ctx => {
+    const spanContext = ctx.tracer.extract("HTTP", ctx.header);
+    const span = ctx.tracer.startSpan("http_server", { childOf: spanContext });
+    span.setTag("span.kind", "server");
     ctx[httpServerSpan] = span;
   });
-  app.on('response', ctx => {
+  app.on("response", ctx => {
     const socket = ctx.req.connection;
 
     const span = ctx[httpServerSpan];
     // TODO: what's the service name of the remote server
-    // span.setTag('peer.service');
-    span.setTag('peer.port', socket.remotePort);
+    span.setTag("peer.port", socket.remotePort);
     /* istanbul ignore if */
-    if (socket.remoteFamily === 'IPv4') {
-      span.setTag('peer.ipv4', socket.remoteAddress);
-    } else if (socket.remoteFamily === 'IPv6') {
-      span.setTag('peer.ipv6', socket.remoteAddress);
+    if (socket.remoteFamily === "IPv4") {
+      span.setTag("peer.ipv4", socket.remoteAddress);
+    } else if (socket.remoteFamily === "IPv6") {
+      span.setTag("peer.ipv6", socket.remoteAddress);
     }
-    span.setTag('http.url', ctx.path);
-    span.setTag('http.method', ctx.method);
-    span.setTag('http.status_code', ctx.realStatus);
-    span.setTag('http.request_size', ctx.get('content-length') || 0);
-    span.setTag('http.response_size', ctx.length || 0);
+    span.setTag("appname", ctx.path);
+    span.setTag("http.url", ctx.path);
+    span.setTag("http.method", ctx.method);
+    span.setTag("http.status_code", ctx.realStatus);
+    span.setTag("http.request_size", ctx.get("content-length") || 0);
+    span.setTag("http.response_size", ctx.length || 0);
+    span.setTag(
+      "http.params",
+      JSON.stringify(
+        ctx.method === "GET" ? ctx.request.query : ctx.request.body
+      )
+    );
+    span.setTag("http.response", JSON.stringify(ctx.body));
     span.finish();
   });
 }
 
 function logHTTPClient(app) {
-  const _span = Symbol.for('Request#span');
-  app.httpclient.on('request', req => {
+  const _span = Symbol.for("Request#span");
+  app.httpclient.on("request", req => {
     let ctx = req.ctx;
     if (!ctx) {
       ctx = app.createAnonymousContext();
@@ -64,29 +70,32 @@ function logHTTPClient(app) {
 
     const args = req.args;
     if (!args.headers) args.headers = {};
-    const span = ctx.tracer.startSpan('http_client');
-    span.setTag('span.kind', 'client');
-    ctx.tracer.inject(span.context(), 'HTTP', args.headers);
+    const span = ctx.tracer.startSpan("http_client");
+    span.setTag("span.kind", "client");
+    ctx.tracer.inject(span.context(), "HTTP", args.headers);
     req[_span] = span;
   });
 
-  app.httpclient.on('response', ({ req, res }) => {
+  app.httpclient.on("response", ({ req, res }) => {
     const span = req[_span];
     const address = req.socket.address();
-    span.setTag('peer.hostname', req.options.host);
-    span.setTag('peer.port', req.options.port);
-    span.setTag('peer.service', req.options.host);
+    span.setTag("peer.hostname", req.options.host);
+    span.setTag("peer.port", req.options.port);
+    span.setTag("peer.service", req.options.path.split("?")[0]);
     /* istanbul ignore else */
-    if (address.family === 'IPv4') {
-      span.setTag('peer.ipv4', address.address);
-    } else if (address.family === 'IPv6') {
-      span.setTag('peer.ipv6', address.address);
+    if (address.family === "IPv4") {
+      span.setTag("peer.ipv4", address.address);
+    } else if (address.family === "IPv6") {
+      span.setTag("peer.ipv6", address.address);
     }
-    span.setTag('http.url', req.url);
-    span.setTag('http.method', req.options.method);
-    span.setTag('http.status_code', res.status);
-    span.setTag('http.request_size', req.size || 0);
-    span.setTag('http.response_size', res.size || 0);
+    span.setTag("http.url", req.url);
+    span.setTag("http.method", req.options.method);
+    span.setTag("http.status_code", res.status);
+    span.setTag("http.request_size", req.size || 0);
+    span.setTag("http.response_size", res.size || 0);
+    span.setTag("http.params", JSON.stringify(req.args.data));
+    span.setTag("http.headers", JSON.stringify(req.args.headers));
+    span.setTag("http.response", JSON.stringify(res.data));
     span.finish();
   });
 }
