@@ -26,7 +26,7 @@ function logHTTPServer(app) {
   const httpServerSpan = Symbol("Context#httpServerSpan");
   app.on("request", ctx => {
     const spanContext = ctx.tracer.extract("HTTP", ctx.header);
-    const span = ctx.tracer.startSpan("http_server", { childOf: spanContext });
+    const span = ctx.tracer.startSpan(ctx.path, { childOf: spanContext });
     span.setTag("span.kind", "server");
     ctx[httpServerSpan] = span;
   });
@@ -42,7 +42,7 @@ function logHTTPServer(app) {
     } else if (socket.remoteFamily === "IPv6") {
       span.setTag("peer.ipv6", socket.remoteAddress);
     }
-    span.setTag("appname", ctx.path);
+    span.setTag("appname", "yc-node");
     span.setTag("http.url", ctx.path);
     span.setTag("http.method", ctx.method);
     span.setTag("http.status_code", ctx.realStatus);
@@ -70,7 +70,7 @@ function logHTTPClient(app) {
 
     const args = req.args;
     if (!args.headers) args.headers = {};
-    const span = ctx.tracer.startSpan("http_client");
+    const span = ctx.tracer.startSpan(req.url);
     span.setTag("span.kind", "client");
     ctx.tracer.inject(span.context(), "HTTP", args.headers);
     req[_span] = span;
@@ -81,7 +81,7 @@ function logHTTPClient(app) {
     const address = req.socket.address();
     span.setTag("peer.hostname", req.options.host);
     span.setTag("peer.port", req.options.port);
-    span.setTag("peer.service", req.options.path.split("?")[0]);
+    span.setTag("peer.service", `yryc-biz-${req.options.path.split("/")[1]}`);
     /* istanbul ignore else */
     if (address.family === "IPv4") {
       span.setTag("peer.ipv4", address.address);
