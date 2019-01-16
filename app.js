@@ -81,7 +81,10 @@ function logHTTPClient(app) {
     const address = req.socket.address();
     span.setTag("peer.hostname", req.options.host);
     span.setTag("peer.port", req.options.port);
-    span.setTag("peer.service", `yryc-biz-${req.options.path.split("/")[1]}`);
+    span.setTag(
+      "peer.service",
+      `yryc-biz-${req.options.path.split("/")[1]}-server`
+    );
     /* istanbul ignore else */
     if (address.family === "IPv4") {
       span.setTag("peer.ipv4", address.address);
