@@ -42,7 +42,7 @@ function logHTTPServer(app) {
     } else if (socket.remoteFamily === "IPv6") {
       span.setTag("peer.ipv6", socket.remoteAddress);
     }
-    span.setTag("appname", "yc-node");
+    span.setTag("appname", "yc-node-" + app.config.env);
     span.setTag("http.url", ctx.path);
     span.setTag("http.method", ctx.method);
     span.setTag("http.status_code", ctx.realStatus);
